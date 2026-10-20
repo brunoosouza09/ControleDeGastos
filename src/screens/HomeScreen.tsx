@@ -1,19 +1,18 @@
 import React from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
-import { Gasto } from '../types/Gasto';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { GastoCard } from '../components/GastoCard';
 import { ResumoCard } from '../components/ResumoCard';
 import { BotaoPrimario } from '../components/BotaoPrimario';
+import { EstadoDaConsulta } from '../components/EstadoDaConsulta';
+import { useGastosContext } from '../context/GastosContext';
+import { InicioScreenProps } from '../navigation/tipos';
 import { cores } from '../constants/cores';
 import { formatarMoeda } from '../utils/formatarMoeda';
 
-interface HomeScreenProps {
-  gastos: Gasto[];
-  onNovoGasto: () => void;
-}
-
-/** Tela inicial: total do mês, atalho para novo gasto e lista de gastos recentes */
-export function HomeScreen({ gastos, onNovoGasto }: HomeScreenProps) {
+/** Tela inicial: total do mês, atalho para novo gasto e lista de gastos vindos da API */
+export function HomeScreen({ navigation }: InicioScreenProps) {
+  const { gastos, status, erro, recarregar } = useGastosContext();
   const hoje = new Date();
 
   const gastosDoMes = gastos.filter(
@@ -26,38 +25,41 @@ export function HomeScreen({ gastos, onNovoGasto }: HomeScreenProps) {
   const gastosOrdenados = [...gastos].sort((a, b) => b.data.getTime() - a.data.getTime());
 
   return (
-    <View style={styles.container}>
-      <ResumoCard rotulo="Total gasto no mês" valor={formatarMoeda(totalDoMes)} />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <EstadoDaConsulta
+        status={status}
+        erro={erro}
+        vazio={gastos.length === 0}
+        mensagemVazio='Nenhum gasto registrado ainda. Toque em "Novo" para começar!'
+        onTentarNovamente={recarregar}
+      >
+        <ResumoCard rotulo="Total gasto no mês" valor={formatarMoeda(totalDoMes)} />
 
-      <View style={styles.botaoContainer}>
-        <BotaoPrimario titulo="+ Novo gasto" onPress={onNovoGasto} />
-      </View>
+        <View style={styles.botaoContainer}>
+          <BotaoPrimario titulo="+ Novo gasto" onPress={() => navigation.navigate('NovoGasto')} />
+        </View>
 
-      <Text style={styles.subtitulo}>Seus gastos</Text>
+        <Text style={styles.subtitulo}>Seus gastos</Text>
 
-      <FlatList
-        style={styles.flatList}
-        data={gastosOrdenados}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <GastoCard
-            titulo={item.titulo}
-            valor={item.valor}
-            categoria={item.categoria}
-            data={item.data}
-          />
-        )}
-        contentContainerStyle={styles.listaConteudo}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.vazio}>
-            <Text style={styles.vazioTexto}>
-              Nenhum gasto registrado ainda. Toque em "Novo gasto" para começar!
-            </Text>
-          </View>
-        }
-      />
-    </View>
+        <FlatList
+          style={styles.flatList}
+          data={gastosOrdenados}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <Pressable onPress={() => navigation.navigate('DetalheGasto', { gastoId: item.id })}>
+              <GastoCard
+                titulo={item.titulo}
+                valor={item.valor}
+                categoria={item.categoria}
+                data={item.data}
+              />
+            </Pressable>
+          )}
+          contentContainerStyle={styles.listaConteudo}
+          showsVerticalScrollIndicator={false}
+        />
+      </EstadoDaConsulta>
+    </SafeAreaView>
   );
 }
 
@@ -82,15 +84,5 @@ const styles = StyleSheet.create({
   },
   listaConteudo: {
     paddingBottom: 20,
-  },
-  vazio: {
-    alignItems: 'center',
-    marginTop: 40,
-    paddingHorizontal: 20,
-  },
-  vazioTexto: {
-    fontSize: 14,
-    color: cores.textoSecundario,
-    textAlign: 'center',
   },
 });

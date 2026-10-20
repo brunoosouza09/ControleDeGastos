@@ -9,18 +9,18 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Categoria, NovoGastoInput } from '../types/Gasto';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Categoria } from '../types/Gasto';
 import { CATEGORIAS } from '../constants/categorias';
 import { CategoriaChip } from '../components/CategoriaChip';
 import { BotaoPrimario } from '../components/BotaoPrimario';
+import { useGastosContext } from '../context/GastosContext';
+import { NovoGastoScreenProps } from '../navigation/tipos';
 import { cores } from '../constants/cores';
 
-interface NovoGastoScreenProps {
-  onSalvar: (gasto: NovoGastoInput) => void;
-}
-
 /** Tela de formulário para cadastrar um novo gasto */
-export function NovoGastoScreen({ onSalvar }: NovoGastoScreenProps) {
+export function NovoGastoScreen({ navigation }: NovoGastoScreenProps) {
+  const { adicionarGasto } = useGastosContext();
   const [titulo, setTitulo] = useState('');
   const [valorTexto, setValorTexto] = useState('');
   const [categoria, setCategoria] = useState<Categoria | null>(null);
@@ -50,54 +50,57 @@ export function NovoGastoScreen({ onSalvar }: NovoGastoScreenProps) {
       return;
     }
 
-    onSalvar({ titulo: tituloLimpo, valor: valorNumerico, categoria });
+    adicionarGasto({ titulo: tituloLimpo, valor: valorNumerico, categoria });
     limparFormulario();
+    navigation.navigate('Inicio'); // volta para a Home após salvar
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
-        <Text style={styles.titulo}>Novo gasto</Text>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+          <Text style={styles.titulo}>Novo gasto</Text>
 
-        <Text style={styles.rotulo}>Título</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex.: Almoço, Uber, Aluguel..."
-          placeholderTextColor={cores.textoSecundario}
-          value={titulo}
-          onChangeText={setTitulo}
-        />
+          <Text style={styles.rotulo}>Título</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Ex.: Almoço, Uber, Aluguel..."
+            placeholderTextColor={cores.textoSecundario}
+            value={titulo}
+            onChangeText={setTitulo}
+          />
 
-        <Text style={styles.rotulo}>Valor (R$)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex.: 49,90"
-          placeholderTextColor={cores.textoSecundario}
-          value={valorTexto}
-          onChangeText={setValorTexto}
-          keyboardType="decimal-pad"
-        />
+          <Text style={styles.rotulo}>Valor (R$)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Ex.: 49,90"
+            placeholderTextColor={cores.textoSecundario}
+            value={valorTexto}
+            onChangeText={setValorTexto}
+            keyboardType="decimal-pad"
+          />
 
-        <Text style={styles.rotulo}>Categoria</Text>
-        <View style={styles.chips}>
-          {CATEGORIAS.map((item) => (
-            <CategoriaChip
-              key={item}
-              nome={item}
-              selecionado={categoria === item}
-              onPress={() => setCategoria(item)}
-            />
-          ))}
-        </View>
+          <Text style={styles.rotulo}>Categoria</Text>
+          <View style={styles.chips}>
+            {CATEGORIAS.map((item) => (
+              <CategoriaChip
+                key={item}
+                nome={item}
+                selecionado={categoria === item}
+                onPress={() => setCategoria(item)}
+              />
+            ))}
+          </View>
 
-        <View style={styles.botaoContainer}>
-          <BotaoPrimario titulo="Salvar gasto" onPress={validarESalvar} />
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <View style={styles.botaoContainer}>
+            <BotaoPrimario titulo="Salvar gasto" onPress={validarESalvar} />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 

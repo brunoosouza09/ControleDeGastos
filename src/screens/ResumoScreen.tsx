@@ -1,18 +1,18 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Gasto } from '../types/Gasto';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { CATEGORIAS } from '../constants/categorias';
 import { BarraCategoria } from '../components/BarraCategoria';
+import { EstadoDaConsulta } from '../components/EstadoDaConsulta';
 import { ResumoCard } from '../components/ResumoCard';
+import { useGastosContext } from '../context/GastosContext';
 import { cores } from '../constants/cores';
 import { formatarMoeda } from '../utils/formatarMoeda';
 
-interface ResumoScreenProps {
-  gastos: Gasto[];
-}
-
 /** Tela de resumo: total gasto por categoria (barras) e total geral */
-export function ResumoScreen({ gastos }: ResumoScreenProps) {
+export function ResumoScreen() {
+  const { gastos, status, erro, recarregar } = useGastosContext();
+
   const totalGeral = gastos.reduce((soma, gasto) => soma + gasto.valor, 0);
 
   const totaisPorCategoria = CATEGORIAS.map((categoria) => {
@@ -24,32 +24,40 @@ export function ResumoScreen({ gastos }: ResumoScreenProps) {
   }).filter((item) => item.total > 0);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.conteudo}>
-      <Text style={styles.titulo}>Resumo por categoria</Text>
+    <SafeAreaView style={styles.area} edges={['top']}>
+      <EstadoDaConsulta
+        status={status}
+        erro={erro}
+        vazio={gastos.length === 0}
+        mensagemVazio="Ainda não há gastos suficientes para gerar o resumo."
+        onTentarNovamente={recarregar}
+      >
+        <ScrollView style={styles.container} contentContainerStyle={styles.conteudo}>
+          <Text style={styles.titulo}>Resumo por categoria</Text>
 
-      {totaisPorCategoria.length === 0 ? (
-        <View style={styles.vazio}>
-          <Text style={styles.vazioTexto}>Ainda não há gastos suficientes para gerar o resumo.</Text>
-        </View>
-      ) : (
-        <View style={styles.barras}>
-          {totaisPorCategoria.map((item) => (
-            <BarraCategoria
-              key={item.categoria}
-              categoria={item.categoria}
-              valor={item.total}
-              percentual={item.percentual}
-            />
-          ))}
-        </View>
-      )}
+          <View style={styles.barras}>
+            {totaisPorCategoria.map((item) => (
+              <BarraCategoria
+                key={item.categoria}
+                categoria={item.categoria}
+                valor={item.total}
+                percentual={item.percentual}
+              />
+            ))}
+          </View>
 
-      <ResumoCard rotulo="Total geral" valor={formatarMoeda(totalGeral)} />
-    </ScrollView>
+          <ResumoCard rotulo="Total geral" valor={formatarMoeda(totalGeral)} />
+        </ScrollView>
+      </EstadoDaConsulta>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  area: {
+    flex: 1,
+    backgroundColor: cores.fundo,
+  },
   container: {
     flex: 1,
     backgroundColor: cores.fundo,
@@ -74,15 +82,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
-  },
-  vazio: {
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingVertical: 20,
-  },
-  vazioTexto: {
-    fontSize: 14,
-    color: cores.textoSecundario,
-    textAlign: 'center',
   },
 });
