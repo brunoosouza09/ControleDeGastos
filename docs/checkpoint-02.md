@@ -3,6 +3,8 @@
 Projeto Integrador de Programação Mobile — Toledo Prudente Centro Universitário.
 Aplicativo em React Native (Expo SDK 57) com TypeScript.
 
+> **Desenvolvimento com apoio de IA.** Este checkpoint foi desenvolvido por Bruno Oliveira Souza com a ajuda do Claude Code (Anthropic, modelo Claude Sonnet 5.5), que ajudou com ideias e com a lógica da solução e ajudou a programar: o Claude Code escreveu o código a partir das instruções do aluno, que definiu o escopo, aprovou o plano antes da implementação e testou o aplicativo no iPhone com o Expo Go. O detalhamento está na seção 9 e no Termo de Uso de IA Generativa entregue junto.
+
 ## 1. Evolução do projeto
 
 ### O que existia no Checkpoint 1
@@ -211,3 +213,21 @@ Resposta real de `GET /gastos`, com o JSON formatado para leitura:
 <img src="img/10-api-json.png" width="460" alt="Resposta do GET /gastos em JSON">
 
 Os arquivos originais estão em `docs/img/`.
+
+## 9. Uso de Inteligência Artificial
+
+O desenvolvimento deste checkpoint contou com o Claude Code (Anthropic, modelo Claude Sonnet 5.5), que atuou como apoio durante todo o trabalho, sempre sob a direção do aluno.
+
+**O que a IA fez**
+
+- Ajudou com ideias: propôs a Web API própria em Node, em vez de uma API pública, e o React Navigation para a navegação.
+- Ajudou com a lógica e a arquitetura: separação entre telas e comunicação com a API (`src/services`), hook `useGastos`, contexto `GastosProvider` e tratamento dos cinco cenários da consulta.
+- Ajudou a programar: escreveu o código do aplicativo e da API a partir das instruções do aluno.
+- Ajudou nos testes e na revisão de segurança, e na redação desta documentação, nas capturas de tela e no vídeo de apresentação.
+
+**O que o aluno fez**
+
+- Definiu o escopo do checkpoint e escolheu seguir com a Web API própria.
+- Aprovou o plano antes da implementação.
+- Executou o aplicativo no próprio iPhone, com o Expo Go, e conferiu as telas e os fluxos.
+- Assume a autoria e a responsabilidade pelo projeto entregue.
