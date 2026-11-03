@@ -132,17 +132,27 @@ function validarGasto(corpo, dataPadrao) {
 // CORS: só libera o navegador quando a página vem do Expo Web (porta 8081, ou a definida em
 // CORS_PORTA). Assim, outro site aberto no navegador não consegue alterar os gastos.
 // O app no celular (Expo Go) não envia Origin e não é afetado.
-const PORTA_EXPO_WEB = process.env.CORS_PORTA || '8081';
+// A lista tem as origens exatas (protocolo + host + porta): localhost, 127.0.0.1 e os IPs desta
+// máquina na porta do Expo Web, mais as definidas em CORS_ORIGINS (separadas por vírgula).
+const PORTA_EXPO_WEB = /^\d+$/.test(process.env.CORS_PORTA || '') ? process.env.CORS_PORTA : '8081';
+
+function origensPermitidas() {
+  const hosts = ['localhost', '127.0.0.1'];
+  for (const interfaceDeRede of Object.values(os.networkInterfaces()).flat()) {
+    if (interfaceDeRede && interfaceDeRede.family === 'IPv4') hosts.push(interfaceDeRede.address);
+  }
+  const extras = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((texto) => texto.trim())
+    .filter(Boolean);
+  return new Set([...hosts.map((host) => `http://${host}:${PORTA_EXPO_WEB}`), ...extras]);
+}
+
+const ORIGENS_PERMITIDAS = origensPermitidas();
 
 function cabecalhosCors(req) {
   const origem = req.headers.origin;
-  let permitida = false;
-  try {
-    permitida = Boolean(origem) && new URL(origem).port === PORTA_EXPO_WEB;
-  } catch {
-    permitida = false;
-  }
-  if (!permitida) return {};
+  if (typeof origem !== 'string' || !ORIGENS_PERMITIDAS.has(origem)) return {};
   return {
     'Access-Control-Allow-Origin': origem,
     Vary: 'Origin',
