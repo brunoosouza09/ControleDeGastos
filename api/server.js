@@ -1,6 +1,6 @@
 // Web API REST do Controle de Gastos (Checkpoint 3).
-// Servidor HTTP em Node puro + banco SQLite nativo do Node (node:sqlite), sem dependências.
-// Para iniciar: npm run api   (requer Node 22.5 ou superior)
+// Servidor HTTP em Node puro + banco de dados PostgreSQL (driver "pg").
+// Para iniciar: docker compose up -d   (sobe o PostgreSQL)   e depois   npm run api
 //
 // Endpoints (CRUD):
 //   GET    /gastos         lista os gastos                         200
@@ -18,35 +18,28 @@
 //     lento  -> todas as rotas de /gastos respondem após 3 s (ATRASO_LENTO_MS muda o tempo)
 //   Também é possível forçar o cenário em uma única requisição: GET /gastos?cenario=erro
 //
-// Banco de dados: arquivo api/gastos.db (criado e populado com exemplos na primeira execução).
-// Para recomeçar do zero, apague o arquivo ou rode: npm run api:reset
+// Banco de dados: PostgreSQL (DATABASE_URL; padrão: o container do docker-compose.yml).
+// A tabela "gastos" é criada e populada com exemplos na primeira execução.
+// Para recomeçar do zero, rode: npm run api:reset
 
 const http = require('node:http');
 const os = require('node:os');
-const path = require('node:path');
-const { DatabaseSync } = require('node:sqlite');
+const { Pool } = require('pg');
 
 const PORTA = Number(process.env.PORT) || 3333;
 const CENARIOS = ['normal', 'vazio', 'erro', 'lento'];
 const ATRASO_CENARIO_LENTO_MS = Number(process.env.ATRASO_LENTO_MS) || 3000;
 const CATEGORIAS = ['Alimentação', 'Transporte', 'Lazer', 'Moradia', 'Outros'];
 const TAMANHO_MAXIMO_CORPO = 10 * 1024;
-const CAMINHO_BANCO = process.env.DB_PATH || path.join(__dirname, 'gastos.db');
+const URL_BANCO = process.env.DATABASE_URL || 'postgresql://gastos:gastos@localhost:5433/gastos';
 
 let cenarioAtivo = CENARIOS.includes(process.env.CENARIO) ? process.env.CENARIO : 'normal';
 
 // ---------------------------------------------------------------- banco de dados
 
-const banco = new DatabaseSync(CAMINHO_BANCO);
-banco.exec(`
-  CREATE TABLE IF NOT EXISTS gastos (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    titulo    TEXT    NOT NULL,
-    valor     REAL    NOT NULL CHECK (valor > 0),
-    categoria TEXT    NOT NULL,
-    data      TEXT    NOT NULL
-  )
-`);
+const banco = new Pool({ connectionString: URL_BANCO });
+// Uma conexão ociosa que cai não pode derrubar o processo
+banco.on('error', (erro) => console.error('Erro na conexão com o banco:', erro.message));
 
 // Cria a data (ISO 8601) de um dia do mês atual ao meio-dia, para que o fuso
 // horário não empurre o gasto para o dia ou mês vizinho
@@ -57,11 +50,10 @@ function dataDoMes(dia, deslocamentoDeMeses = 0) {
 }
 
 // Na primeira execução (tabela vazia), grava alguns gastos de exemplo
-function popularSeVazio() {
-  const { total } = banco.prepare('SELECT COUNT(*) AS total FROM gastos').get();
-  if (total > 0) return;
-  const inserir = banco.prepare('INSERT INTO gastos (titulo, valor, categoria, data) VALUES (?, ?, ?, ?)');
-  [
+async function popularSeVazio() {
+  const { rows } = await banco.query('SELECT COUNT(*)::int AS total FROM gastos');
+  if (rows[0].total > 0) return;
+  const exemplos = [
     ['Supermercado', 187.5, 'Alimentação', dataDoMes(1)],
     ['Uber para o trabalho', 24.9, 'Transporte', dataDoMes(2)],
     ['Cinema com amigos', 60, 'Lazer', dataDoMes(3)],
@@ -69,27 +61,66 @@ function popularSeVazio() {
     ['Assinatura de streaming', 39.9, 'Outros', dataDoMes(new Date().getDate())],
     ['Almoço de domingo', 82, 'Alimentação', dataDoMes(15, -1)],
     ['Gasolina', 210, 'Transporte', dataDoMes(20, -1)],
-  ].forEach((linha) => inserir.run(...linha));
+  ];
+  for (const linha of exemplos) {
+    await banco.query('INSERT INTO gastos (titulo, valor, categoria, data) VALUES ($1, $2, $3, $4)', linha);
+  }
   console.log('Banco criado com gastos de exemplo.');
 }
 
-if (process.argv.includes('--reset')) {
-  banco.exec('DELETE FROM gastos; DELETE FROM sqlite_sequence WHERE name = \'gastos\';');
-  console.log('Banco apagado.');
+async function prepararBanco() {
+  await banco.query(`
+    CREATE TABLE IF NOT EXISTS gastos (
+      id        SERIAL PRIMARY KEY,
+      titulo    VARCHAR(80)   NOT NULL,
+      valor     NUMERIC(12,2) NOT NULL CHECK (valor > 0),
+      categoria VARCHAR(30)   NOT NULL,
+      data      TIMESTAMPTZ   NOT NULL
+    )
+  `);
+  if (process.argv.includes('--reset')) {
+    await banco.query('TRUNCATE gastos RESTART IDENTITY');
+    console.log('Banco apagado.');
+  }
+  await popularSeVazio();
 }
-popularSeVazio();
 
-// O id sai do banco como número; a API sempre o devolve como texto
+// O banco devolve o id como número, o valor (NUMERIC) como texto e a data como Date;
+// a API sempre devolve o id como texto, o valor como número e a data em ISO 8601
 function paraJson(linha) {
-  return { id: String(linha.id), titulo: linha.titulo, valor: linha.valor, categoria: linha.categoria, data: linha.data };
+  return {
+    id: String(linha.id),
+    titulo: linha.titulo,
+    valor: Number(linha.valor),
+    categoria: linha.categoria,
+    data: linha.data.toISOString(),
+  };
 }
 
 const consultas = {
-  listar: banco.prepare('SELECT * FROM gastos ORDER BY data DESC, id DESC'),
-  buscar: banco.prepare('SELECT * FROM gastos WHERE id = ?'),
-  inserir: banco.prepare('INSERT INTO gastos (titulo, valor, categoria, data) VALUES (?, ?, ?, ?)'),
-  atualizar: banco.prepare('UPDATE gastos SET titulo = ?, valor = ?, categoria = ?, data = ? WHERE id = ?'),
-  excluir: banco.prepare('DELETE FROM gastos WHERE id = ?'),
+  async listar() {
+    return (await banco.query('SELECT * FROM gastos ORDER BY data DESC, id DESC')).rows;
+  },
+  async buscar(id) {
+    return (await banco.query('SELECT * FROM gastos WHERE id = $1', [id])).rows[0];
+  },
+  async inserir(g) {
+    const { rows } = await banco.query(
+      'INSERT INTO gastos (titulo, valor, categoria, data) VALUES ($1, $2, $3, $4) RETURNING *',
+      [g.titulo, g.valor, g.categoria, g.data],
+    );
+    return rows[0];
+  },
+  async atualizar(id, g) {
+    const { rows } = await banco.query(
+      'UPDATE gastos SET titulo = $1, valor = $2, categoria = $3, data = $4 WHERE id = $5 RETURNING *',
+      [g.titulo, g.valor, g.categoria, g.data, id],
+    );
+    return rows[0];
+  },
+  async excluir(id) {
+    await banco.query('DELETE FROM gastos WHERE id = $1', [id]);
+  },
 };
 
 // ---------------------------------------------------------------- validação
@@ -218,7 +249,7 @@ async function tratarGastos(req, res, id, cenario) {
   // Coleção: /gastos
   if (id === undefined) {
     if (req.method === 'GET') {
-      responderJson(res, 200, cenario === 'vazio' ? [] : consultas.listar.all().map(paraJson));
+      responderJson(res, 200, cenario === 'vazio' ? [] : (await consultas.listar()).map(paraJson));
       return;
     }
     if (req.method === 'POST') {
@@ -227,8 +258,7 @@ async function tratarGastos(req, res, id, cenario) {
         responderJson(res, 400, { mensagem: erros.join(' '), erros });
         return;
       }
-      const { lastInsertRowid } = consultas.inserir.run(gasto.titulo, gasto.valor, gasto.categoria, gasto.data);
-      responderJson(res, 201, paraJson(consultas.buscar.get(lastInsertRowid)));
+      responderJson(res, 201, paraJson(await consultas.inserir(gasto)));
       return;
     }
     responderJson(res, 405, { mensagem: 'Método não permitido.' });
@@ -237,7 +267,7 @@ async function tratarGastos(req, res, id, cenario) {
 
   // Item: /gastos/:id
   const idNumerico = idDaUrl(id);
-  const existente = idNumerico === null ? undefined : consultas.buscar.get(idNumerico);
+  const existente = idNumerico === null ? undefined : await consultas.buscar(idNumerico);
 
   if (req.method === 'GET') {
     if (!existente) return naoEncontrado(res);
@@ -251,13 +281,12 @@ async function tratarGastos(req, res, id, cenario) {
       responderJson(res, 400, { mensagem: erros.join(' '), erros });
       return;
     }
-    consultas.atualizar.run(gasto.titulo, gasto.valor, gasto.categoria, gasto.data, idNumerico);
-    responderJson(res, 200, paraJson(consultas.buscar.get(idNumerico)));
+    responderJson(res, 200, paraJson(await consultas.atualizar(idNumerico, gasto)));
     return;
   }
   if (req.method === 'DELETE') {
     if (!existente) return naoEncontrado(res);
-    consultas.excluir.run(idNumerico);
+    await consultas.excluir(idNumerico);
     responderSemConteudo(res);
     return;
   }
@@ -319,12 +348,20 @@ const servidor = http.createServer(async (req, res) => {
   }
 });
 
-servidor.listen(PORTA, () => {
-  console.log(`API do Controle de Gastos rodando na porta ${PORTA} (cenário: ${cenarioAtivo})`);
-  console.log(`Banco de dados: ${CAMINHO_BANCO}`);
-  const enderecos = Object.values(os.networkInterfaces())
-    .flat()
-    .filter((interfaceDeRede) => interfaceDeRede && interfaceDeRede.family === 'IPv4' && !interfaceDeRede.internal)
-    .map((interfaceDeRede) => `http://${interfaceDeRede.address}:${PORTA}`);
-  console.log(`Use no app (EXPO_PUBLIC_API_URL): ${enderecos.join('  ou  ') || 'nenhum IP de rede encontrado'}`);
-});
+prepararBanco()
+  .then(() => {
+    servidor.listen(PORTA, () => {
+      console.log(`API do Controle de Gastos rodando na porta ${PORTA} (cenário: ${cenarioAtivo})`);
+      console.log('Banco de dados: PostgreSQL (conectado)');
+      const enderecos = Object.values(os.networkInterfaces())
+        .flat()
+        .filter((interfaceDeRede) => interfaceDeRede && interfaceDeRede.family === 'IPv4' && !interfaceDeRede.internal)
+        .map((interfaceDeRede) => `http://${interfaceDeRede.address}:${PORTA}`);
+      console.log(`Use no app (EXPO_PUBLIC_API_URL): ${enderecos.join('  ou  ') || 'nenhum IP de rede encontrado'}`);
+    });
+  })
+  .catch((erro) => {
+    console.error('Não foi possível conectar ao PostgreSQL:', erro.message);
+    console.error('Suba o banco com: docker compose up -d   (ou defina DATABASE_URL)');
+    process.exit(1);
+  });

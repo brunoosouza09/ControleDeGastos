@@ -1,0 +1,18 @@
+# Banco de dados PostgreSQL do Controle de Gastos (uso local, desenvolvimento).
+# Subir:   docker compose up -d
+# Parar:   docker compose down        (os dados ficam no volume; "down -v" apaga tudo)
+services:
+  postgres:
+    image: postgres:17
+    container_name: gastos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gastos
+      POSTGRES_PASSWORD: gastos
+      POSTGRES_DB: gastos
+    ports:
+      - "5433:5432"
+    volumes:
+      - gastos-pgdata:/var/lib/postgresql/data
+volumes:
+  gastos-pgdata:

@@ -9,7 +9,7 @@ Aluno: Bruno Oliveira Souza. Aplicativo em React Native (Expo SDK 57) com TypeSc
 
 O **Controle de Gastos** é um aplicativo para registrar e acompanhar gastos pessoais. O usuário cadastra cada gasto (título, valor e categoria), consulta a lista e o total do mês, abre o detalhe de um gasto para editá-lo ou excluí-lo, e vê um resumo do quanto gastou em cada categoria.
 
-Os dados ficam numa **Web API REST** própria, escrita em Node.js, que os grava num **banco de dados SQLite**. O app faz todas as operações de CRUD por essa API.
+Os dados ficam numa **Web API REST** própria, escrita em Node.js, que os grava num **banco de dados PostgreSQL**. O app faz todas as operações de CRUD por essa API.
 
 ### Fluxo completo de utilização
 
@@ -26,13 +26,13 @@ Os dados ficam numa **Web API REST** própria, escrita em Node.js, que os grava 
 | --- | --- | --- |
 | Telas, componentes e estado local com dados fixos | React Navigation; Web API só com consulta (`GET`) e dados fixos | **CRUD completo** (`GET`, `POST`, `PUT`, `DELETE`) |
 | Navegação por `useState` | Abas + pilha; tela de Detalhe | Nova tela **Editar gasto**; botões Editar/Excluir no Detalhe |
-| Sem API | API com dados fixos em memória | API com **banco de dados SQLite**: os dados persistem |
+| Sem API | API com dados fixos em memória | API com **banco de dados PostgreSQL**: os dados persistem |
 | Validação com `Alert` | Erros só na consulta | Erros tratados em **todas** as operações: conexão, 404, 400, 500, carregamento |
 | | Gasto novo ficava só na memória | Gasto novo é gravado no banco pela API |
 
 ### O que mudou neste checkpoint
 
-- **API (`api/server.js`):** novas rotas `GET /gastos/:id`, `POST`, `PUT` e `DELETE`; validação dos dados no servidor (400 com a lista de erros); 404 para gasto inexistente; gravação em SQLite.
+- **API (`api/server.js`):** novas rotas `GET /gastos/:id`, `POST`, `PUT` e `DELETE`; validação dos dados no servidor (400 com a lista de erros); 404 para gasto inexistente; gravação em PostgreSQL.
 - **`src/services/http.ts`:** a função `requisitarJson` passou a aceitar método e corpo (antes só fazia GET) e trata a resposta 204 sem corpo.
 - **`src/services/gastosService.ts`:** `buscarGasto`, `criarGasto`, `atualizarGasto` e `excluirGasto`.
 - **`src/hooks/useGastos.ts`:** operações assíncronas que chamam a API e só atualizam a lista depois que a API confirma; "puxar para atualizar".
@@ -119,29 +119,31 @@ Servidor HTTP em Node.js puro, sem dependências externas, em `api/server.js`. P
 
 ## 5. Banco de dados
 
-SQLite, pelo módulo nativo `node:sqlite` do Node.js (versão 22.5 ou superior). Não precisa instalar nada.
+PostgreSQL 17, executado num container Docker (`docker-compose.yml`, porta 5433) e acessado pelo driver `pg`. A conexão vem de `DATABASE_URL` (o padrão aponta para o container).
 
 ```sql
 CREATE TABLE IF NOT EXISTS gastos (
-  id        INTEGER PRIMARY KEY AUTOINCREMENT,
-  titulo    TEXT    NOT NULL,
-  valor     REAL    NOT NULL CHECK (valor > 0),
-  categoria TEXT    NOT NULL,
-  data      TEXT    NOT NULL
+  id        SERIAL PRIMARY KEY,
+  titulo    VARCHAR(80)   NOT NULL,
+  valor     NUMERIC(12,2) NOT NULL CHECK (valor > 0),
+  categoria VARCHAR(30)   NOT NULL,
+  data      TIMESTAMPTZ   NOT NULL
 )
 ```
 
-- O arquivo `api/gastos.db` é criado automaticamente na primeira execução da API, com 7 gastos de exemplo.
-- Os dados ficam gravados entre execuções.
+- A tabela é criada automaticamente na primeira execução da API, com 7 gastos de exemplo.
+- Os dados ficam gravados no volume do Docker entre execuções.
+- Se o banco não estiver no ar, a API avisa no terminal e encerra (`docker compose up -d` resolve).
 - `npm run api:reset` apaga os gastos e grava os exemplos de novo.
 
 ## 6. Como executar
 
-Pré-requisitos: Node.js 22.5 ou superior; Expo Go no celular (opcional).
+Pré-requisitos: Node.js 18 ou superior; Docker Desktop (para o PostgreSQL); Expo Go no celular (opcional).
 
 ```bash
 npm install
-npm run api          # terminal 1: API + banco (porta 3333)
+docker compose up -d # sobe o PostgreSQL (porta 5433)
+npm run api          # terminal 1: API (porta 3333)
 npx expo start       # terminal 2: app ("w" abre no navegador, ou leia o QR code com o Expo Go)
 ```
 
@@ -151,7 +153,7 @@ npx expo start       # terminal 2: app ("w" abre no navegador, ou leia o QR code
 ## 7. Estrutura de pastas
 
 ```
-api/server.js                  Web API REST + banco SQLite
+api/server.js                  Web API REST + banco PostgreSQL
 src/
   components/                  FormularioGasto, BotaoPrimario, EstadoDaConsulta, GastoCard,
                                CategoriaChip, ResumoCard, BarraCategoria
@@ -196,7 +198,7 @@ A tela de falha de conexão (API desligada) é a mesma do Checkpoint 2 (`docs/im
 - Não há login: todos os gastos pertencem a um único usuário.
 - A data do gasto é a do cadastro; o formulário não permite escolher outra data (a API já aceita o campo `data`).
 - O tráfego usa HTTP sem criptografia, adequado para desenvolvimento local; um build de produção exigiria HTTPS e autenticação.
-- O módulo `node:sqlite` ainda é marcado como experimental pelo Node.js (o aviso é ocultado no script `npm run api`).
+- O banco roda em Docker com usuário e senha de desenvolvimento (`gastos`/`gastos`); em produção seriam credenciais próprias, fora do código.
 
 ## 10. Uso de Inteligência Artificial
 
@@ -205,7 +207,7 @@ O projeto contou com o Claude Code (Anthropic) como apoio em todos os checkpoint
 **O que a IA fez**
 
 - Leu o enunciado do Checkpoint 3 e comparou com o estado do projeto, apontando o que faltava (CRUD, banco de dados, tratamento de erros nas operações de escrita).
-- Propôs a solução: SQLite nativo do Node (sem instalar servidor de banco) e um formulário reutilizável para cadastro e edição.
+- Propôs a solução com SQLite nativo do Node e, a pedido do aluno, migrou para PostgreSQL em container Docker; propôs também um formulário reutilizável para cadastro e edição.
 - Escreveu o código da API, do banco e do app a partir das instruções do aluno.
 - Testou o fluxo completo no navegador (cadastrar, editar, excluir, erros 400/404/500) e gerou as capturas e esta documentação.
 

@@ -4,7 +4,7 @@ App mobile de controle de gastos pessoais, desenvolvido em React Native (Expo) c
 
 - **Checkpoint 01:** telas, componentes e estado local.
 - **Checkpoint 02:** navegação com React Navigation e consumo de uma Web API REST ([`docs/checkpoint-02.md`](docs/checkpoint-02.md)).
-- **Checkpoint 03 (entrega final):** CRUD completo com a Web API, banco de dados SQLite, edição e exclusão, e tratamento de erros em todas as operações ([`docs/checkpoint-03.md`](docs/checkpoint-03.md)).
+- **Checkpoint 03 (entrega final):** CRUD completo com a Web API, banco de dados PostgreSQL, edição e exclusão, e tratamento de erros em todas as operações ([`docs/checkpoint-03.md`](docs/checkpoint-03.md)).
 
 ## Stack
 
@@ -12,7 +12,7 @@ App mobile de controle de gastos pessoais, desenvolvido em React Native (Expo) c
 - [React Navigation](https://reactnavigation.org/) 7 (abas inferiores + pilha)
 - `fetch` nativo; hooks (`useState`, `useEffect`, `useCallback`) e Context API para o estado
 - **Web API** própria em Node.js puro (pasta `api/`), sem dependências externas
-- **Banco de dados** SQLite, pelo módulo nativo `node:sqlite` do Node.js (arquivo `api/gastos.db`)
+- **Banco de dados** PostgreSQL 17 (container Docker, `docker-compose.yml`), acessado pelo driver `pg`
 
 ## Funcionalidades
 
@@ -28,12 +28,15 @@ Feedback ao usuário: indicador de carregamento, botão com "carregando" durante
 
 ## Como executar
 
-Pré-requisitos: **Node.js 22.5 ou superior** (o banco usa o módulo nativo `node:sqlite`) e o app **Expo Go** no celular, se for testar num aparelho.
+Pré-requisitos: **Node.js 18 ou superior**, **Docker Desktop** (para o PostgreSQL) e o app **Expo Go** no celular, se for testar num aparelho.
 
 ```bash
 npm install
 
-# Terminal 1: Web API + banco de dados (http://localhost:3333)
+# Banco de dados PostgreSQL (container, porta 5433)
+docker compose up -d
+
+# Terminal 1: Web API (http://localhost:3333)
 npm run api
 
 # Terminal 2: app
@@ -42,12 +45,13 @@ npx expo start          # depois: "w" abre no navegador, ou leia o QR code com o
 
 ### Banco de dados
 
-Não precisa instalar nada. Na primeira execução de `npm run api`, o arquivo `api/gastos.db` é criado com a tabela `gastos` e alguns gastos de exemplo. Os dados ficam gravados entre execuções.
+O PostgreSQL roda num container (`docker compose up -d`, porta 5433, usuário, senha e banco `gastos`, só para uso local). Na primeira execução de `npm run api`, a tabela `gastos` é criada com alguns gastos de exemplo. Os dados ficam gravados no volume do Docker entre execuções.
 
 - Para voltar aos dados de exemplo: `npm run api:reset` (apaga os gastos e grava os exemplos de novo).
-- Para usar outro arquivo: defina a variável `DB_PATH`.
+- Para usar outro PostgreSQL: defina a variável `DATABASE_URL` (ex.: `postgresql://usuario:senha@host:5432/banco`).
+- Para parar o banco: `docker compose down` (acrescente `-v` para apagar também os dados).
 
-Tabela `gastos`: `id` (INTEGER, chave primária autoincremento), `titulo` (TEXT), `valor` (REAL, > 0), `categoria` (TEXT), `data` (TEXT, ISO 8601).
+Tabela `gastos`: `id` (SERIAL, chave primária), `titulo` (VARCHAR(80)), `valor` (NUMERIC(12,2), > 0), `categoria` (VARCHAR(30)), `data` (TIMESTAMPTZ).
 
 ### Endereço da API no app
 
@@ -91,7 +95,7 @@ Volte ao normal com `/cenario/normal`.
 
 ```
 api/
-  server.js       # Web API REST (CRUD) + banco SQLite + cenários de demonstração
+  server.js       # Web API REST (CRUD) + banco PostgreSQL + cenários de demonstração
 src/
   components/     # GastoCard, FormularioGasto, BotaoPrimario, CategoriaChip, ResumoCard, BarraCategoria, EstadoDaConsulta
   screens/        # HomeScreen, NovoGastoScreen, DetalheGastoScreen, EditarGastoScreen, ResumoScreen
