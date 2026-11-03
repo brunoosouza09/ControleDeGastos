@@ -64,7 +64,8 @@ Tabela `gastos`: `id` (INTEGER, chave primária autoincremento), `titulo` (TEXT)
 | PUT | `/gastos/:id` | `{ titulo, valor, categoria, data? }` | 200 gasto alterado, 400, 404 |
 | DELETE | `/gastos/:id` | | 204, 404 |
 
-Erros sempre vêm como `{ "mensagem": "..." }` (no 400, também `erros: [...]`). Categorias aceitas: Alimentação, Transporte, Lazer, Moradia, Outros.
+Erros sempre vêm como `{ "mensagem": "..." }` (no 400, também `erros: [...]`).
+POST e PUT exigem `Content-Type: application/json` (senão 415), e o CORS só libera o Expo Web na porta 8081 (`CORS_PORTA` muda). Categorias aceitas: Alimentação, Transporte, Lazer, Moradia, Outros.
 
 Exemplo:
 

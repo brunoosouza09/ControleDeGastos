@@ -113,7 +113,7 @@ Servidor HTTP em Node.js puro, sem dependências externas, em `api/server.js`. P
 - Erros sempre vêm em JSON: `{ "mensagem": "..." }`; no 400 também `"erros": [...]` com cada problema.
 - Validação no servidor: título obrigatório (até 80 caracteres), valor numérico maior que zero e menor que 1 milhão, categoria entre as 5 aceitas e data em ISO 8601 (opcional; no POST, o padrão é o momento do cadastro).
 - Corpo limitado a 10 KB; JSON malformado responde 400; consultas parametrizadas (sem concatenar SQL).
-- CORS liberado para o app rodar também no navegador.
+- CORS liberado só para o Expo Web (porta 8081, configurável em `CORS_PORTA`) e POST/PUT exigem `Content-Type: application/json` (415 caso contrário): assim, outro site aberto no navegador não consegue alterar os gastos.
 
 **Cenários de demonstração** (para provocar as situações na apresentação): `GET /cenario/normal`, `/cenario/vazio`, `/cenario/lento` (respostas em 3 s) e `/cenario/erro` (todas as rotas de `/gastos` respondem 500).
 

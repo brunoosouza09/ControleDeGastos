@@ -129,26 +129,46 @@ function validarGasto(corpo, dataPadrao) {
 
 // ---------------------------------------------------------------- HTTP
 
-const CABECALHOS_CORS = {
-  // Libera o acesso quando o app roda no navegador (expo start --web)
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Accept',
-};
+// CORS: só libera o navegador quando a página vem do Expo Web (porta 8081, ou a definida em
+// CORS_PORTA). Assim, outro site aberto no navegador não consegue alterar os gastos.
+// O app no celular (Expo Go) não envia Origin e não é afetado.
+const PORTA_EXPO_WEB = process.env.CORS_PORTA || '8081';
+
+function cabecalhosCors(req) {
+  const origem = req.headers.origin;
+  let permitida = false;
+  try {
+    permitida = Boolean(origem) && new URL(origem).port === PORTA_EXPO_WEB;
+  } catch {
+    permitida = false;
+  }
+  if (!permitida) return {};
+  return {
+    'Access-Control-Allow-Origin': origem,
+    Vary: 'Origin',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Accept',
+  };
+}
 
 function responderJson(res, status, corpo) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', ...CABECALHOS_CORS });
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', ...cabecalhosCors(res.req) });
   res.end(JSON.stringify(corpo));
 }
 
 function responderSemConteudo(res) {
-  res.writeHead(204, CABECALHOS_CORS);
+  res.writeHead(204, cabecalhosCors(res.req));
   res.end();
 }
 
 /** Lê o corpo JSON da requisição (com limite de tamanho) */
 function lerCorpoJson(req) {
   return new Promise((resolver, rejeitar) => {
+    // Exigir JSON impede que um formulário de outro site envie dados sem a verificação de CORS
+    if (!String(req.headers['content-type'] || '').toLowerCase().startsWith('application/json')) {
+      rejeitar({ status: 415, mensagem: 'Envie os dados em JSON (Content-Type: application/json).' });
+      return;
+    }
     let texto = '';
     req.setEncoding('utf8');
     req.on('data', (parte) => {
@@ -248,7 +268,7 @@ const servidor = http.createServer(async (req, res) => {
   console.log(`${req.method} ${req.url}`);
 
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, CABECALHOS_CORS);
+    res.writeHead(204, cabecalhosCors(req));
     res.end();
     return;
   }
