@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# banco SQLite da API (criado na primeira execução)
+api/*.db
+api/*.db-*

@@ -1,5 +1,5 @@
 import React from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GastoCard } from '../components/GastoCard';
 import { ResumoCard } from '../components/ResumoCard';
@@ -12,7 +12,7 @@ import { formatarMoeda } from '../utils/formatarMoeda';
 
 /** Tela inicial: total do mês, atalho para novo gasto e lista de gastos vindos da API */
 export function HomeScreen({ navigation }: InicioScreenProps) {
-  const { gastos, status, erro, recarregar } = useGastosContext();
+  const { gastos, status, erro, recarregar, atualizar, atualizando } = useGastosContext();
   const hoje = new Date();
 
   const gastosDoMes = gastos.filter(
@@ -55,6 +55,9 @@ export function HomeScreen({ navigation }: InicioScreenProps) {
               />
             </Pressable>
           )}
+          refreshControl={
+            <RefreshControl refreshing={atualizando} onRefresh={atualizar} colors={[cores.primaria]} tintColor={cores.primaria} />
+          }
           contentContainerStyle={styles.listaConteudo}
           showsVerticalScrollIndicator={false}
         />

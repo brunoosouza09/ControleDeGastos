@@ -2,6 +2,8 @@ import { ErroDeRede, ErroDoServidor } from './erros';
 
 const TEMPO_LIMITE_MS = 8000;
 
+type MetodoHttp = 'GET' | 'POST' | 'PUT' | 'DELETE';
+
 /** Lê a mensagem de erro enviada pelo servidor ({ "mensagem": "..." }), se houver */
 async function lerMensagemDeErro(resposta: Response): Promise<string> {
   try {
@@ -12,14 +14,16 @@ async function lerMensagemDeErro(resposta: Response): Promise<string> {
   } catch {
     // corpo vazio ou que não é JSON: usa a mensagem padrão abaixo
   }
+  if (resposta.status === 404) return 'O registro não foi encontrado.';
   return `O servidor respondeu com o status ${resposta.status}.`;
 }
 
 /**
- * Faz uma requisição GET e devolve o JSON da resposta já convertido.
+ * Faz uma requisição à Web API e devolve o JSON da resposta já convertido
+ * (ou undefined quando a resposta é 204 No Content).
  * Falhas de comunicação viram ErroDeRede; respostas com erro viram ErroDoServidor.
  */
-export async function buscarJson<T>(url: string): Promise<T> {
+export async function requisitarJson<T>(url: string, metodo: MetodoHttp = 'GET', corpo?: unknown): Promise<T> {
   // Sem limite de tempo, o fetch pode ficar pendurado quando o IP não responde
   const controlador = new AbortController();
   const temporizador = setTimeout(() => controlador.abort(), TEMPO_LIMITE_MS);
@@ -28,7 +32,12 @@ export async function buscarJson<T>(url: string): Promise<T> {
     let resposta: Response;
     try {
       resposta = await fetch(url, {
-        headers: { Accept: 'application/json' },
+        method: metodo,
+        headers: {
+          Accept: 'application/json',
+          ...(corpo !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        },
+        body: corpo !== undefined ? JSON.stringify(corpo) : undefined,
         signal: controlador.signal,
       });
     } catch {
@@ -37,6 +46,10 @@ export async function buscarJson<T>(url: string): Promise<T> {
 
     if (!resposta.ok) {
       throw new ErroDoServidor(await lerMensagemDeErro(resposta), resposta.status);
+    }
+
+    if (resposta.status === 204) {
+      return undefined as T;
     }
 
     try {

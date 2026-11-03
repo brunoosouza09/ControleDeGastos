@@ -7,6 +7,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { NovoGastoScreen } from '../screens/NovoGastoScreen';
 import { ResumoScreen } from '../screens/ResumoScreen';
 import { DetalheGastoScreen } from '../screens/DetalheGastoScreen';
+import { EditarGastoScreen } from '../screens/EditarGastoScreen';
 import { cores } from '../constants/cores';
 import { AbasParamList, PilhaParamList } from './tipos';
 
@@ -70,6 +71,11 @@ export function AppNavigator() {
           name="DetalheGasto"
           component={DetalheGastoScreen}
           options={{ title: 'Detalhe do gasto', headerTintColor: cores.primaria }}
+        />
+        <Pilha.Screen
+          name="EditarGasto"
+          component={EditarGastoScreen}
+          options={{ title: 'Editar gasto', headerTintColor: cores.primaria }}
         />
       </Pilha.Navigator>
     </NavigationContainer>

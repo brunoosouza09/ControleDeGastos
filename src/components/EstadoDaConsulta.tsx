@@ -2,6 +2,7 @@ import React, { ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { StatusConsulta } from '../hooks/useGastos';
 import { ErroDeRede, ErroDoServidor } from '../services/erros';
+import { tituloDoErro } from '../services/mensagemDeErro';
 import { BotaoPrimario } from './BotaoPrimario';
 import { cores } from '../constants/cores';
 
@@ -42,9 +43,7 @@ export function EstadoDaConsulta({
     return (
       <View style={styles.centro}>
         <Text style={styles.icone}>{falhaDeRede ? '📡' : '⚠️'}</Text>
-        <Text style={styles.titulo}>
-          {falhaDeRede ? 'Sem conexão com o servidor' : 'O servidor retornou um erro'}
-        </Text>
+        <Text style={styles.titulo}>{tituloDoErro(erro)}</Text>
         <Text style={styles.texto}>{erro?.message}</Text>
         {codigo !== undefined && <Text style={styles.codigo}>Código {codigo}</Text>}
         <View style={styles.botao}>

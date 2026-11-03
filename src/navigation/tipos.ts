@@ -9,10 +9,11 @@ export type AbasParamList = {
   Resumo: undefined;
 };
 
-/** Telas da pilha principal: as abas e o detalhe, que recebe o id do gasto tocado */
+/** Telas da pilha principal: as abas, o detalhe e a edição (ambos recebem o id do gasto) */
 export type PilhaParamList = {
   Abas: NavigatorScreenParams<AbasParamList>;
   DetalheGasto: { gastoId: string };
+  EditarGasto: { gastoId: string };
 };
 
 export type InicioScreenProps = CompositeScreenProps<
@@ -21,3 +22,4 @@ export type InicioScreenProps = CompositeScreenProps<
 >;
 export type NovoGastoScreenProps = BottomTabScreenProps<AbasParamList, 'NovoGasto'>;
 export type DetalheGastoScreenProps = NativeStackScreenProps<PilhaParamList, 'DetalheGasto'>;
+export type EditarGastoScreenProps = NativeStackScreenProps<PilhaParamList, 'EditarGasto'>;

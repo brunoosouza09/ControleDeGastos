@@ -18,7 +18,7 @@ export interface Gasto {
 }
 
 /**
- * Dados necessários para criar um novo gasto a partir do formulário.
- * O id e a data são gerados automaticamente ao salvar.
+ * Dados enviados à API para criar ou alterar um gasto.
+ * O id é gerado pelo banco; a data, quando omitida, é a do momento do cadastro.
  */
-export type NovoGastoInput = Omit<Gasto, 'id' | 'data'>;
+export type GastoInput = Omit<Gasto, 'id' | 'data'>;

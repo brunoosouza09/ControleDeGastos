@@ -12,6 +12,9 @@ export const cores = {
   primaria: '#4C6FFF',
   primariaEscura: '#3652CC',
   perigo: '#E5484D',
+  perigoEscuro: '#C33A3F',
+  perigoFundo: '#FDECEC',
+  sucesso: '#1F9D6B',
 
   // Uma cor por categoria, usada em chips, cards e no resumo
   categoriaAlimentacao: '#FF8A5B',
